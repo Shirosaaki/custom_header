@@ -2,7 +2,7 @@
   "name": "proheader",
   "displayName": "proHeader",
   "description": "Header pro for C/H CPP/HPP files",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "license": "MIT",
   "publisher": "Shirosaaki",
   "repository": {
@@ -16,6 +16,7 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:proheader.insertHeader",
     "onCommand:proheader.helloWorld"
   ],
@@ -38,6 +39,17 @@
         "when": "editorTextFocus"
       }
     ]
+    ,
+    "configuration": {
+      "title": "Pro Header",
+      "properties": {
+        "proheader.defaultAuthor": {
+          "type": "string",
+          "default": "",
+          "description": "Default author name used to prefill the Author input. Saved when you enter an author."
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",
