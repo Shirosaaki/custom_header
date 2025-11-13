@@ -39,6 +39,15 @@ function makeCommentBlock(filename, description, author, date, style = 'block') 
 		const lines = inner.map(l => prefix + l);
 		return lines.join('\n') + '\n\n';
 	}
+	else if (style === 'haskell') {
+		const lines = [];
+		lines.push('{-');
+		for (let i = 0; i < inner.length; i++) {
+			lines.push('-- ' + inner[i]);
+		}
+		lines.push('-}');
+		return lines.join('\n') + '\n\n';
+	}
 
 	// fallback to block
 	return makeCommentBlock(filename, description, author, date, 'block');
@@ -48,6 +57,7 @@ function detectStyle(extNoDot, basenameWithExt) {
 	const b = basenameWithExt.toLowerCase();
 	if (extNoDot === 'py') return { style: 'hash', shebang: true };
 	if (extNoDot === '' && b === 'makefile') return { style: 'hash', shebang: false };
+	if (extNoDot === 'hs') return { style: 'haskell', shebang: false };
 	// keep existing behavior for C/C++ family
 	return { style: 'block', shebang: false };
 }
