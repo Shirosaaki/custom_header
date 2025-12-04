@@ -48,6 +48,11 @@ function makeCommentBlock(filename, description, author, date, style = 'block') 
 		lines.push('-}');
 		return lines.join('\n') + '\n\n';
 	}
+	else if (style === 'tslang') {
+		const prefix = 'desnote ';
+		const lines = inner.map(l => prefix + l);
+		return lines.join('\n') + '\n\n';
+	}
 
 	// fallback to block
 	return makeCommentBlock(filename, description, author, date, 'block');
@@ -58,6 +63,7 @@ function detectStyle(extNoDot, basenameWithExt) {
 	if (extNoDot === 'py') return { style: 'hash', shebang: true };
 	if (extNoDot === '' && b === 'makefile') return { style: 'hash', shebang: false };
 	if (extNoDot === 'hs') return { style: 'haskell', shebang: false };
+	if (extNoDot === 'tslang') return { style: 'tslang', shebang: false };
 	// keep existing behavior for C/C++ family
 	return { style: 'block', shebang: false };
 }
