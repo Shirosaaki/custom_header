@@ -53,6 +53,11 @@ function makeCommentBlock(filename, description, author, date, style = 'block') 
 		const lines = inner.map(l => prefix + l);
 		return lines.join('\n') + '\n\n';
 	}
+	else if (style === 'php') {
+		const prefix = '// ';
+		const lines = inner.map(l => prefix + l);
+		return lines.join('\n') + '\n\n';
+	}
 
 	// fallback to block
 	return makeCommentBlock(filename, description, author, date, 'block');
@@ -64,6 +69,7 @@ function detectStyle(extNoDot, basenameWithExt) {
 	if (extNoDot === '' && b === 'makefile') return { style: 'hash', shebang: false };
 	if (extNoDot === 'hs') return { style: 'haskell', shebang: false };
 	if (extNoDot === 'tslang') return { style: 'tslang', shebang: false };
+	if (extNoDot === 'php') return { style: 'php', shebang: false };
 	// keep existing behavior for C/C++ family
 	return { style: 'block', shebang: false };
 }
@@ -100,6 +106,9 @@ async function autoInsertHeaderForDocument(doc) {
 		const basenameWithExt = path.basename(filePath || (doc.uri && doc.uri.path) || '');
 		const basename = path.basename(basenameWithExt, ext);
 		const extNoDot = ext.startsWith('.') ? ext.slice(1) : ext;
+
+		// Skip files without extensions, markdown, JSON, and hidden files
+		if (extNoDot === '' || extNoDot === 'md' || extNoDot === 'json' || basenameWithExt.startsWith('.')) return;
 
 	const config = vscode.workspace.getConfiguration('proheader');
 	const defaultAuthor = config.get('defaultAuthor') || process.env.GIT_AUTHOR_NAME || process.env.USER || '';
@@ -143,6 +152,11 @@ async function autoInsertHeaderForDocument(doc) {
 			toInsert += impl.join('\n');
 		}
 
+		// Prepend PHP opening tag for PHP files
+		if (extNoDot === 'php') {
+			toInsert = '<?php\n\n' + toInsert;
+		}
+
 		// Prepend shebang for scripts that need it
 		if (detected && detected.shebang) {
 			toInsert = '#!/usr/bin/env python3\n' + toInsert;
@@ -177,6 +191,9 @@ async function interactiveInsertForCreatedDocument(doc) {
 		const basename = path.basename(basenameWithExt, ext);
 		const extNoDot = ext.startsWith('.') ? ext.slice(1) : ext;
 
+		// Skip files without extensions, markdown, JSON, and hidden files
+		if (extNoDot === '' || extNoDot === 'md' || extNoDot === 'json' || basenameWithExt.startsWith('.')) return;
+
 	// Prompt for author and description (allow cancel -> use defaults)
 	const config = vscode.workspace.getConfiguration('proheader');
 	const defaultAuthor = config.get('defaultAuthor') || process.env.GIT_AUTHOR_NAME || process.env.USER || '';
@@ -187,6 +204,11 @@ async function interactiveInsertForCreatedDocument(doc) {
 
 		const detected = detectStyle(extNoDot, basenameWithExt);
 		let toInsert = makeCommentBlock(basenameWithExt, description || '', author || defaultAuthor, today, detected.style);
+
+		// Prepend PHP opening tag for PHP files
+		if (extNoDot === 'php') {
+			toInsert = '<?php\n\n' + toInsert;
+		}
 
 		// Non-interactive C/C++ additions (same as autoInsert)
 		if (extNoDot === 'h') {
@@ -245,8 +267,9 @@ async function interactiveInsertForCreatedDocument(doc) {
 function hasHeaderAtTop(text) {
 	if (!text || typeof text !== 'string') return false;
 	const head = text.split('\n').slice(0, 8).join('\n');
-	// detect common header signatures: C block, hash border, shebang + border
+	// detect common header signatures: C block, hash border, shebang + border, PHP tag
 	if (/\/\*\*/.test(head)) return true; // /**
+	if (/^<\?php/.test(head)) return true; // <?php
 	if (/^#!/.test(head.trim())) {
 		// shebang exists, check next lines for header border
 		const rest = text.split('\n').slice(0, 10).join('\n');
@@ -273,6 +296,20 @@ async function insertHeader() {
 	const basenameWithExt = path.basename(filePath);
 	const basename = path.basename(filePath, ext);
 	const extNoDot = ext.startsWith('.') ? ext.slice(1) : ext;
+
+	// Skip files without extensions, markdown, JSON, and hidden files
+	if (extNoDot === '') {
+		vscode.window.showWarningMessage('Cannot insert header in file without extension');
+		return;
+	}
+	if (extNoDot === 'md' || extNoDot === 'json') {
+		vscode.window.showWarningMessage('Cannot insert header in ' + extNoDot.toUpperCase() + ' files');
+		return;
+	}
+	if (basenameWithExt.startsWith('.')) {
+		vscode.window.showWarningMessage('Cannot insert header in hidden files');
+		return;
+	}
 
 	// Ask for Author and Description (use saved config if available)
 	const config = vscode.workspace.getConfiguration('proheader');
@@ -325,11 +362,13 @@ async function insertHeader() {
 		impl.push('');
 		toInsert += impl.join('\n');
 	} else {
-		// For any other extension (or files with no extension), default to inserting
-		// only the comment header. `toInsert` already contains the comment block
-		// created above. This removes the previous limitation that displayed an
-		// "unsupported" message and returned early.
-		// Future: customize templates per-language here if desired.
+		// For any other extension, default to inserting only the comment header
+		// (includes PHP files)
+	}
+
+	// Prepend PHP opening tag for PHP files
+	if (extNoDot === 'php') {
+		toInsert = '<?php\n\n' + toInsert;
 	}
 
 	// If the detected style requested a shebang (e.g. Python), put it on the
